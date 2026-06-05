@@ -293,12 +293,32 @@ st.markdown(f"""
 
 .main .block-container {{
     max-width: 1250px;
-    padding-top: 30px;
+    padding-top: 12px !important;
+    margin-top: 0px !important;
+}}
+
+.block-container {{
+    padding-top: 12px !important;
+    margin-top: 0px !important;
+}}
+
+section.main > div {{
+    padding-top: 0rem !important;
+}}
+
+[data-testid="stAppViewContainer"] .main .block-container {{
+    padding-top: 12px !important;
+    margin-top: 0px !important;
 }}
 
 div.main:has(.home-wrap) .block-container {{
-    padding-top: 0px !important;
+    padding-top: 12px !important;
     margin-top: 0px !important;
+}}
+
+div[data-testid="stHorizontalBlock"] {{
+    margin-top: 0px !important;
+    padding-top: 0px !important;
 }}
 
 #MainMenu {{ visibility: hidden; }}
@@ -447,7 +467,7 @@ if st.session_state.show_home:
             st.session_state.home_tab = "CONTACT"
             st.rerun()
             
-    st.markdown("<hr style='margin-top:5px; margin-bottom:20px; border-color:rgba(0,245,212,0.25);'>", unsafe_allow_html=True)
+    st.markdown("<hr style='margin-top:0px; margin-bottom:10px; border-color:rgba(0,245,212,0.25);'>", unsafe_allow_html=True)
 
     if st.session_state.home_tab == "ABOUT":
         about_html = """
