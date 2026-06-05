@@ -273,7 +273,7 @@ def generate_pdf_report():
     return buffer
 
 # ---------- 6. GLOBAL CSS STYLE WITH SOFT GLOW EXTENSION ----------
-bg_base64 = get_base64_image(r"background.jpeg")
+bg_base64 = get_base64_image(r"new img.jpeg")
 
 st.markdown(f"""
 <style>
