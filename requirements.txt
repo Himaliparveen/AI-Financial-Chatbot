@@ -1,0 +1,8 @@
+streamlit
+requests
+beautifulsoup4
+plotly
+numpy
+google-genai
+reportlab
+lxml
