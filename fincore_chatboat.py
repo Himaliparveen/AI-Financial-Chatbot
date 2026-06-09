@@ -11,13 +11,144 @@ from google.genai import types
 import re
 import io 
 from pathlib import Path
+import os
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
 # ---------- 1. PAGE CONFIGURATION ----------
-st.set_page_config(page_title="FinCore", page_icon="💰", layout="wide")
+st.set_page_config(page_title="FinCore : ", page_icon="💰", layout="wide")
+
+# Neutral Theme Styling for both Light and Dark modes
+st.markdown(
+    """
+    <style>
+        :root {
+            color-scheme: light dark;
+            --app-bg: #f8fafc;
+            --page-bg: rgba(45, 55, 75, 0.95);
+            --panel-bg: #ffffff;
+            --card-bg: #ffffff;
+            --text-primary: #e5e7eb;
+            --text-secondary: #cbd5e1;
+            --border: #475569;
+            --button-bg: #1f2937;
+            --button-text: #e5e7eb;
+            --button-border: #0ea5e9;
+            --input-bg: #111827;
+            --input-border: #334155;
+            --accent: #0ea5e9;
+            --shadow: 0 0 30px rgba(14, 165, 233, 0.4), 0 0 60px rgba(14, 165, 233, 0.2);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --app-bg: #020617;
+                --page-bg: rgba(15, 23, 42, 0.92);
+                --panel-bg: rgba(15, 23, 42, 0.96);
+                --card-bg: rgba(15, 23, 42, 0.88);
+                --text-primary: #e5e7eb;
+                --text-secondary: #cbd5e1;
+                --border: #334155;
+                --button-bg: #1f2937;
+                --button-text: #e5e7eb;
+                --button-border: #475569;
+                --input-bg: #111827;
+                --input-border: #334155;
+                --accent: #22d3ee;
+                --shadow: 0 0 25px rgba(34, 211, 238, 0.12);
+            }
+        }
+
+        html, body {
+            zoom: 1.0;
+            width: 100% !important;
+            min-height: 100% !important;
+            max-width: 100% !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow-x: hidden !important;
+            overflow-y: auto !important;
+        }
+
+        .stApp, .main, .block-container {
+            background-color: var(--app-bg) !important;
+            color: var(--text-primary) !important;
+        }
+
+        .main .block-container, .block-container {
+            max-width: 1400px;
+            width: calc(100% - 24px) !important;
+            padding: 16px 20px !important;
+            margin: 0 auto !important;
+            margin-top: 0px !important;
+            background: var(--page-bg) !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 24px !important;
+            box-shadow: var(--shadow) !important;
+        }
+
+        section[data-testid="stSidebar"] {
+            background-color: var(--panel-bg) !important;
+            color: var(--text-primary) !important;
+        }
+
+        div.stButton > button, div[data-testid="stDownloadButton"] > button {
+            background-color: var(--button-bg) !important;
+            color: var(--button-text) !important;
+            border: 1px solid var(--button-border) !important;
+            border-radius: 8px !important;
+            padding: 0.5rem 1rem !important;
+            transition: all 0.2s ease-in-out !important;
+        }
+
+        div.stButton > button:hover, div[data-testid="stDownloadButton"] > button:hover {
+            background-color: var(--page-bg) !important;
+            color: var(--button-text) !important;
+            border-color: var(--accent) !important;
+        }
+
+        div.stButton > button:active, div[data-testid="stDownloadButton"] > button:active {
+            background-color: var(--accent) !important;
+            color: #ffffff !important;
+        }
+
+        div[data-baseweb="input"], div[data-baseweb="select"], input, textarea,
+        .stTextInput input, .stNumberInput input, [data-baseweb="input"] input {
+            background-color: var(--input-bg) !important;
+            color: var(--text-primary) !important;
+            border: 1px solid var(--input-border) !important;
+        }
+
+        input::placeholder, textarea::placeholder,
+        .stTextInput input::placeholder, .stNumberInput input::placeholder,
+        [data-baseweb="input"] input::placeholder {
+            color: var(--text-secondary) !important;
+            opacity: 1 !important;
+        }
+
+        h1, h2, h3, h4, h5, h6, p, span, label, strong {
+            color: inherit !important;
+        }
+
+        div[data-testid="stMetric"] {
+            background-color: var(--card-bg) !important;
+            color: var(--text-primary) !important;
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid var(--border) !important;
+        }
+
+        div[data-testid="stChatInput"] textarea {
+            background-color: var(--input-bg) !important;
+            color: var(--text-primary) !important;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 # ---------- 2. FINANCIAL GLOSSARY DICTIONARY ----------
 FINANCIAL_GLOSSARY = {
@@ -34,11 +165,17 @@ FINANCIAL_GLOSSARY = {
 }
 
 # ---------- 3. SECURE INTERACTIVE API CONFIGURATION ----------
-api_key_to_use =st.secrets ["GEMINI_API_KEY"]
+# Read GEMINI API key from environment first, then fall back to Streamlit secrets safely.
+api_key_to_use = os.environ.get("GEMINI_API_KEY", "")
+if not api_key_to_use:
+    try:
+        api_key_to_use = st.secrets.get("GEMINI_API_KEY", "")
+    except Exception:
+        api_key_to_use = ""
 
 try:
-    client = genai.Client(api_key=api_key_to_use)
-except Exception as init_err:
+    client = genai.Client(api_key=api_key_to_use) if api_key_to_use else None
+except Exception:
     client = None
 
 # ---------- 4. SESSION STATE INITIALIZATION ----------
@@ -74,12 +211,6 @@ if "cibil_score" not in st.session_state:
 
 if "deduction_80c" not in st.session_state:
     st.session_state.deduction_80c = 0.0
-
-if "deduction_80d" not in st.session_state:
-    st.session_state.deduction_80d = 0.0
-
-if "hra_exemption" not in st.session_state:
-    st.session_state.hra_exemption = 0.0
 
 if "sf_name" not in st.session_state:
     st.session_state.sf_name = "Goal"
@@ -247,12 +378,12 @@ def generate_pdf_report():
     story.append(t2)
     story.append(Spacer(1, 15))
     
-    story.append(Paragraph("3. Sinking Fund Capital Allocation Target", h2_style))
+    story.append(Paragraph("3. Luxurias Target Capital Allocation Target", h2_style))
     sf_needed = (st.session_state.sf_target / st.session_state.sf_months) if st.session_state.sf_months > 0 else 0
     sf_status = "ACHIEVABLE VECTOR" if surplus >= sf_needed else "DEFICIT VECTOR"
     
     sf_data = [
-        [Paragraph("<b>Sinking Fund Parameter</b>", body_style), Paragraph("<b>Target Assessment Metrics</b>", body_style)],
+        [Paragraph("<b>Luxurias Target Parameter</b>", body_style), Paragraph("<b>Target Assessment Metrics</b>", body_style)],
         [Paragraph("Designated Sinking Asset Goal Name", body_style), Paragraph(f"{st.session_state.sf_name}", body_style)],
         [Paragraph("Target Valuation Threshold", body_style), Paragraph(f"₹{st.session_state.sf_target:,.2f}", body_style)],
         [Paragraph("Temporal Schedule Allocation (Months)", body_style), Paragraph(f"{st.session_state.sf_months} Months", body_style)],
@@ -349,9 +480,9 @@ div.stVerticalBlockBorderWrapper {{
 
 /* --- PREMIUM CHUNKY GLOWING METRIC CARDS --- */
 div[data-testid="stMetric"] {{
-    border: 1px solid rgba(0, 245, 212, 0.5) !important;
-    box-shadow: 0 0 18px rgba(0, 245, 212, 0.3) !important;
-    background: rgba(15, 23, 42, 0.85) !important;
+    border: 1px solid rgba(148, 163, 184, 0.4) !important;
+    box-shadow: 0 0 18px rgba(148, 163, 184, 0.22) !important;
+    background: rgba(51, 65, 85, 0.92) !important;
     border-radius: 18px !important;
     padding: 25px 20px !important;
     min-height: 140px !important;
@@ -363,9 +494,23 @@ div[data-testid="stMetric"] {{
     transition: all 0.3s ease;
 }}
 div[data-testid="stMetric"]:hover {{
-    box-shadow: 0 0 28px rgba(0, 245, 212, 0.6) !important;
-    border-color: rgba(0, 245, 212, 0.8) !important;
+    box-shadow: 0 0 28px rgba(148, 163, 184, 0.38) !important;
+    border-color: rgba(148, 163, 184, 0.7) !important;
     transform: translateY(-4px);
+}}
+.budget-arrow {{
+    margin-top: 12px;
+    font-size: 18px;
+    font-weight: 700;
+    text-shadow: 0 0 16px rgba(0, 0, 0, 0.18);
+}}
+.budget-arrow.green {{
+    color: #4ade80 !important;
+    text-shadow: 0 0 12px rgba(74, 222, 128, 0.6);
+}}
+.budget-arrow.red {{
+    color: #f87171 !important;
+    text-shadow: 0 0 12px rgba(248, 113, 113, 0.6);
 }}
 
 /* Center labels and numbers inside metrics properly */
@@ -388,13 +533,48 @@ div[data-testid="stMetricValue"] {{
 }}
 
 div.element-container:has(div.stButton > button) button, button {{
-    border: 1px solid rgba(0, 245, 212, 0.35) !important;
-    box-shadow: 0 0 8px rgba(0, 245, 212, 0.1) !important;
-    transition: all 0.25s ease-in-out !important;
+    background: linear-gradient(145deg, #8b2eb5 0%, #d43aff 100%) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.35) !important;
+    box-shadow: 0 12px 25px rgba(139, 46, 181, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -2px 5px rgba(0, 0, 0, 0.12) !important;
+    font-weight: 800 !important;
+    font-size: 1.05rem !important;
+    letter-spacing: 0.03em !important;
+    border-radius: 18px !important;
+    padding: 0.95rem 1.3rem !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25) !important;
+    transition: all 0.2s ease-in-out !important;
+    transform: translateY(0) !important;
 }}
 div.element-container:has(div.stButton > button) button:hover, button:hover {{
-    box-shadow: 0 0 18px rgba(0, 245, 212, 0.4) !important;
-    border-color: rgba(0, 245, 212, 0.8) !important;
+    background: linear-gradient(145deg, #c23cff 0%, #9b1ddb 100%) !important;
+    box-shadow: 0 18px 30px rgba(139, 46, 181, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -3px 6px rgba(0, 0, 0, 0.16) !important;
+    border-color: rgba(255, 255, 255, 0.55) !important;
+    transform: translateY(-2px) !important;
+}}
+
+button[title="Open Fin-Core Assistant"], button[aria-label="Open Fin-Core Assistant"] {{
+    background: linear-gradient(145deg, #0474ff 0%, #02d1ff 100%) !important;
+    border: 1px solid rgba(255,255,255,0.35) !important;
+    box-shadow: 0 14px 28px rgba(4, 116, 255, 0.35), inset 0 1px 0 rgba(255,255,255,0.28) !important;
+    color: #ffffff !important;
+    width: 90px !important;
+    height: 90px !important;
+    min-width: 90px !important;
+    border-radius: 50% !important;
+    transition: all 0.2s ease-in-out !important;
+    transform: translateY(0) !important;
+}}
+button[title="Open Fin-Core Assistant"] span, button[aria-label="Open Fin-Core Assistant"] span {{
+    font-size: 0 !important;
+    color: transparent !important;
+    line-height: 0 !important;
+}}
+button[title="Open Fin-Core Assistant"]:hover, button[aria-label="Open Fin-Core Assistant"]:hover {{
+    background: linear-gradient(145deg, #00c2ff 0%, #0284ff 100%) !important;
+    border-color: rgba(255,255,255,0.6) !important;
+    box-shadow: 0 20px 35px rgba(4, 116, 255, 0.45), inset 0 1px 0 rgba(255,255,255,0.35) !important;
+    transform: translateY(-3px) !important;
 }}
 
 div[style*="border: 1px solid"], div[style*="border:1px solid"] {{
@@ -439,7 +619,11 @@ html:not(:has(.home-wrap)) div[data-testid="stMetricValue"] {{
 
 html:not(:has(.home-wrap)) div[data-testid="stMetricLabel"] p {{
     font-size: 18px !important;
-    color: #cbd5e1 !important;
+    color: #f8fafc !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.01em !important;
+    opacity: 1 !important;
+    text-shadow: 0 0 3px rgba(0,0,0,0.25) !important;
 }}
 
 html:not(:has(.home-wrap)) button div p {{
@@ -642,11 +826,16 @@ if st.session_state.show_home:
             0% {{ transform: translateY(35px) scale(0.96); opacity: 0; }}
             100% {{ transform: translateY(0) scale(1); opacity: 1; }}
         }}
+        @keyframes polishedTitleShimmer {{
+            0% {{ background-position: 0% 50%; opacity: 0.88; transform: translateY(8px) scale(0.98); }}
+            50% {{ background-position: 100% 50%; opacity: 1; transform: translateY(0) scale(1); }}
+            100% {{ background-position: 0% 50%; opacity: 0.92; transform: translateY(4px) scale(0.99); }}
+        }}
         .home-wrap {{ display: flex; align-items: center; justify-content: center; text-align: center; font-family: Arial, sans-serif; }}
         .home-card {{ width: 92%; background: rgba(3,7,18,0.78); border: 1px solid rgba(0,245,212,0.5); box-shadow: 0 0 30px rgba(0,245,212,0.25); border-radius: 35px; padding: 45px; }}
         .home-logo {{ width: 260px; border-radius: 30px; margin-bottom: 20px; border: 1px solid rgba(0, 245, 212, 0.45); animation: continuousNeonGlow 4s ease-in-out infinite, microElasticPop 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }}
         .money-logo {{ font-size: 110px; }}
-        .home-title {{ font-size: 60px; font-weight: 900; background: linear-gradient(90deg, #00f5d4, #38bdf8, #ff4ecd, #fbbf24); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 25px rgba(0, 245, 212, 0.2); animation: microElasticPop 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.15s backwards; }}
+        .home-title {{ font-size: 60px; font-weight: 900; background: linear-gradient(120deg, #0ea5e9, #f472b6, #c084fc, #38bdf8); background-size: 240% 240%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 18px rgba(255, 255, 255, 0.12), 0 10px 30px rgba(20, 20, 60, 0.25); animation: polishedTitleShimmer 6s ease-in-out infinite, microElasticPop 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.15s backwards; }}
         .home-caption {{ font-size: 22px; color: #dbeafe; line-height: 1.6; margin-top: 18px; animation: microElasticPop 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.3s backwards; }}
         .news-bar {{ margin-top: 35px; background: linear-gradient(90deg, #e9d5ff, #d8b4fe, #c084fc); border-radius: 16px; overflow: hidden; white-space: nowrap; display: flex; align-items: center; box-sizing: border-box; height: 54px; padding: 0 20px; animation: microElasticPop 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.4s backwards; }}
         .news-text {{ display: inline-block; padding-left: 100%; animation: scrollNews 35s linear infinite; font-size: 16px; font-weight: 900; color: #581c87; line-height: 54px; margin: 0; }}
@@ -757,7 +946,7 @@ if st.session_state.show_home:
             </div>
         </div>
         """
-        components.html(home_html, height=1380, scrolling=True)
+        components.html(home_html, height=880, scrolling=True)
 
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
@@ -805,11 +994,7 @@ if st.session_state.step == "GET_EXPENSES":
             st.markdown("### 💰 Income & Indian Tax Deductions")
             sal = st.number_input("Monthly Income (₹)", min_value=0.0, value=float(st.session_state.salary), step=5000.0, key="monthly_income")
             u_80c = st.number_input("Section 80C Deductions (₹/yr)", min_value=0.0, max_value=150000.0, key="deduction_80c")
-            u_80d = st.number_input("Section 80D (₹/yr)", min_value=0.0, max_value=100000.0, key="deduction_80d")
-            u_hra = st.number_input("HRA Exemption (₹/yr)", min_value=0.0, key="hra_exemption")
-            st.markdown("---")
-            u_cibil = st.slider("Current CIBIL Score", 300, 900, 750, key="cibil_score")
-            u_emi = st.number_input("Monthly EMI (₹)", min_value=0.0, key="monthly_emi")
+            u_ppf = st.number_input("Annual PPF Contribution (₹/yr)", min_value=0.0, key="ppf_contribution")
         with col2:
             st.markdown("### 🛡️ Essential Expenses")
             u_rent = st.number_input("Rent / Home Loan EMI (₹)", min_value=0.0, key="rent")
@@ -817,20 +1002,27 @@ if st.session_state.step == "GET_EXPENSES":
             u_bills = st.number_input("Bills (₹)", min_value=0.0, key="bills")
             u_ins = st.number_input("Insurance & Fixed EMIs (₹)", min_value=0.0, key="insurance")
             u_edu = st.number_input("Education Fees (₹)", min_value=0.0, key="education")
-            st.markdown("---")
-            st.markdown("### 🎯 Sinking Fund")
-            u_sf_name = st.text_input("Goal Name", value="Luxury Goal", key="goal_name")
-            u_sf_target = st.number_input("Target Amount (₹)", min_value=0.0, key="target_amount")
-            u_sf_months = st.number_input("Months", min_value=1, value=12, key="goal_months")
         with col3:
-            st.markdown("### 🎨 Wants")
+            st.markdown("### 🛡️ Non-essential Expenses")
             u_dining = st.number_input("Dining & Entertainment (₹)", min_value=0.0, key="dining")
             u_shop = st.number_input("Shopping & Apparel (₹)", min_value=0.0, key="shopping")
             u_subs = st.number_input("OTT / Gym (₹)", min_value=0.0, key="subscriptions")
             u_travel = st.number_input("Travel & Hobbies (₹)", min_value=0.0, key="travel")
             u_misc = st.number_input("Miscellaneous (₹)", min_value=0.0, key="miscellaneous")
             st.markdown("---")
-            u_ppf = st.number_input("Annual PPF Contribution (₹/yr)", min_value=0.0, key="ppf_contribution")
+
+        st.markdown("---")
+        subcol1, subcol2 = st.columns(2)
+        with subcol1:
+            st.markdown("### 🏦 Credit Profile")
+            u_cibil = st.slider("Current CIBIL Score", 300, 900, 750, key="cibil_score")
+            u_emi = st.number_input("Monthly EMI (₹)", min_value=0.0, key="monthly_emi")
+        with subcol2:
+            st.markdown("### Luxurias Target")
+            u_sf_name = st.text_input("Goal Name", value="Luxury Goal", key="goal_name")
+            u_sf_target = st.number_input("Target Amount (₹)", min_value=0.0, key="target_amount")
+            u_sf_months = st.number_input("Months", min_value=1, value=12, key="goal_months")
+
         submit = st.form_submit_button("⚡ Sync & Recompute Dashboard")
 
     if submit:
@@ -878,15 +1070,28 @@ if st.session_state.step == "DASHBOARD" and st.session_state.dashboard_ready:
                 key="dashboard_pdf_generation_btn"
             )
 
+        ess_ratio = total_ess / salary if salary > 0 else 0
+        wants_ratio = total_life / salary if salary > 0 else 0
+        savings_ratio = surplus / salary if salary > 0 else 0
+
+        def get_arrow_html(ratio, target, positive=True):
+            if positive:
+                if ratio >= target:
+                    return f"<div class='budget-arrow green'>▲ {ratio*100:.1f}%</div>"
+                return f"<div class='budget-arrow red'>▼ {ratio*100:.1f}%</div>"
+            if ratio <= target:
+                return f"<div class='budget-arrow green'>▲ {ratio*100:.1f}%</div>"
+            return f"<div class='budget-arrow red'>▼ {ratio*100:.1f}%</div>"
+
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("💰 Net Income", f"₹{salary:,.0f}")
-        col2.metric("🏠 Essential Expenses", f"₹{total_ess:,.0f}")
-        col3.metric("🎯 Lifestyle Expenses", f"₹{total_life:,.0f}")
-        col4.metric("📈 Investable Surplus", f"₹{surplus:,.0f}")
+        col2.markdown(f"<div style='text-align:center'>\n<h4>🏠 Essential Expenses</h4>\n<div style='font-size:24px; font-weight:800; color:#4ade80;'>₹{total_ess:,.0f}</div>\n{get_arrow_html(ess_ratio, 0.50, positive=False)}\n</div>", unsafe_allow_html=True)
+        col3.markdown(f"<div style='text-align:center'>\n<h4>🎯 Lifestyle Expenses</h4>\n<div style='font-size:24px; font-weight:800; color:#4ade80;'>₹{total_life:,.0f}</div>\n{get_arrow_html(wants_ratio, 0.30, positive=False)}\n</div>", unsafe_allow_html=True)
+        col4.markdown(f"<div style='text-align:center'>\n<h4>📈 Investable Surplus</h4>\n<div style='font-size:24px; font-weight:800; color:#4ade80;'>₹{surplus:,.0f}</div>\n{get_arrow_html(savings_ratio, 0.20, positive=True)}\n</div>", unsafe_allow_html=True)
 
     selected_module = st.selectbox(
         "Select Financial Analysis",
-        ["Choose a module...", "🏦 CIBIL & Loan", "📊 Investment Strategy", "🎯 Sinking Fund", "📈 PPF Growth", "🎲 20-Year Wealth Simulation"]
+        ["Choose a module...", "🏦 CIBIL & Loan", "📊 Investment Strategy", "🎯 Luxurias Target", "📈 PPF Growth", "🎲 20-Year Wealth Simulation"]
     )
 
     if selected_module == "🏦 CIBIL & Loan":
@@ -925,8 +1130,8 @@ if st.session_state.step == "DASHBOARD" and st.session_state.dashboard_ready:
         c4.metric("Equity", f"₹{surplus*w_eq:,.0f}")
         c5.metric("Gold", f"₹{surplus*w_gold:,.0f}")
 
-    elif selected_module == "🎯 Sinking Fund":
-        st.markdown("## 🎯 Sinking Fund Planner")
+    elif selected_module == "🎯 Luxurias Target":
+        st.markdown("## Luxurias Target Planner")
         if st.session_state.sf_target > 0:
             monthly_required = (st.session_state.sf_target / st.session_state.sf_months)
             c1, c2 = st.columns(2)
@@ -937,7 +1142,7 @@ if st.session_state.step == "DASHBOARD" and st.session_state.dashboard_ready:
             else:
                 st.warning("⚠ Increase surplus or extend timeline.")
         else:
-            st.info("Enter a sinking fund goal in the expense form.")
+            st.info("Enter a Luxurias Target goal in the expense form.")
 
     elif selected_module == "📈 PPF Growth":
         st.markdown("## 📈 PPF Growth Projection")
@@ -962,8 +1167,51 @@ if st.session_state.step == "DASHBOARD" and st.session_state.dashboard_ready:
                 for y in range(1, years + 1):
                     wealth = ((wealth + surplus * 12) * (1 + np.random.normal(0.12, 0.15)))
                     sim[y, i] = wealth
-            st.line_chart(sim)
-            st.success(f"Projected median wealth after 20 years can exceed ₹{np.median(sim[-1]):,.0f}")
+
+            interval_points = [5, 10, 15, 20]
+            median_values = [np.median(sim[year]) for year in interval_points]
+            profit_changes = [median_values[i] - (median_values[i-1] if i > 0 else 0) for i in range(len(median_values))]
+            profit_labels = [f"+₹{profit:,.0f}" for profit in profit_changes]
+            norm_profit = np.array(profit_changes) / max(profit_changes) if max(profit_changes) > 0 else np.zeros_like(profit_changes)
+            bar_colors = [
+                f"rgba({int(239 - 69 * p)}, {int(68 + 187 * p)}, {int(68 + 41 * p)}, 0.9)"
+                for p in norm_profit
+            ]
+
+            fig = go.Figure(
+                data=[
+                    go.Bar(
+                        x=[f"Year {year}" for year in interval_points],
+                        y=median_values,
+                        marker_color=bar_colors,
+                        text=profit_labels,
+                        textposition="outside",
+                        textfont=dict(color="#02111b", size=12, family="Arial, sans-serif"),
+                        hovertemplate="%{x}<br>Median Wealth: ₹%{y:,.0f}<extra></extra>"
+                    )
+                ]
+            )
+            fig.update_layout(
+                title="Median Wealth Growth at 5-Year Intervals",
+                xaxis_title="Interval",
+                yaxis_title="Median Wealth (₹)",
+                plot_bgcolor="rgba(236, 239, 241, 0.92)",
+                paper_bgcolor="rgba(236, 239, 241, 0.95)",
+                font=dict(color="#0f172a", family="Arial, sans-serif"),
+                margin=dict(t=60, b=40, l=60, r=40),
+                uniformtext_minsize=12,
+                uniformtext_mode="show"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            st.success(f"Projected median wealth after 20 years can exceed ₹{median_values[-1]:,.0f}")
+            st.markdown(
+                "#### Absolute profit gain per 5-year interval:\n"
+                f"- Year 5: {profit_labels[0]}\n"
+                f"- Year 10: {profit_labels[1]}\n"
+                f"- Year 15: {profit_labels[2]}\n"
+                f"- Year 20: {profit_labels[3]}\n",
+                unsafe_allow_html=True
+            )
         else:
             st.warning("No investable surplus available.")
 
@@ -990,25 +1238,29 @@ if not st.session_state.show_home:
                 height: 90px !important;
                 min-width: 90px !important;
                 border-radius: 50% !important;
-                border: 3px solid #3498db !important;
-                box-shadow: 0 0 20px rgba(52,152,219,0.6) !important;
+                border: 2px solid rgba(255,255,255,0.35) !important;
+                box-shadow: 0 16px 32px rgba(124, 58, 237, 0.24), inset 0 1px 0 rgba(255,255,255,0.20) !important;
                 animation: continuousRotation 12s linear infinite !important;
-                background-image: url("data:image/jpeg;base64,{logo_base64}") !important;
+                background: radial-gradient(circle at top left, rgba(255,255,255,0.35), transparent 32%), linear-gradient(145deg, #7c3aed 20%, #d946ef 70%, #f43f5e 100%) !important;
                 background-size: cover !important;
                 background-position: center !important;
                 background-repeat: no-repeat !important;
-                background-color: transparent !important;
                 color: transparent !important;
                 font-size: 0px !important;
                 padding: 0px !important;
                 overflow: hidden !important;
+                transform: translateY(0) !important;
             }}
             button[title="Open Fin-Core Assistant"] span, button[aria-label="Open Fin-Core Assistant"] span {{
                 font-size: 0 !important;
                 color: transparent !important;
                 line-height: 0 !important;
             }}
-            button[title="Open Fin-Core Assistant"]:hover, button[aria-label="Open Fin-Core Assistant"]:hover {{ border-color: #00F4A2 !important; box-shadow: 0 0 30px rgba(0,244,162,0.8) !important; transform: scale(1.08) !important; }}
+            button[title="Open Fin-Core Assistant"]:hover, button[aria-label="Open Fin-Core Assistant"]:hover {{
+                border-color: rgba(255,255,255,0.75) !important;
+                box-shadow: 0 20px 40px rgba(124, 58, 237, 0.32), inset 0 2px 0 rgba(255,255,255,0.25) !important;
+                transform: translateY(-2px) scale(1.03) !important;
+            }}
             </style>
             """,
             unsafe_allow_html=True
@@ -1152,3 +1404,13 @@ if not st.session_state.show_home:
 
             st.session_state.messages.append({"role": "assistant", "content": reply})
             st.rerun()
+
+# --- FOOTER DISCLAIMER ---
+st.markdown("<br>" * 3, unsafe_allow_html=True)
+st.markdown("""
+    <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
+        <p style="font-size: 12px; color: #ffffff; font-style: italic; line-height: 1.6; opacity: 0.8; margin: 0;">
+            This app and chatbot, created by Nandita Das, Priyanka Kumari Sharma, and Himali Parveen, are provided for informational purposes only and do not constitute financial advice. Users should consult qualified professionals before making financial decisions.
+        </p>
+    </div>
+""", unsafe_allow_html=True)
